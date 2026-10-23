@@ -1,0 +1,20 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Never commit local secrets; keep the documented templates.
+.env
+.env.*
+!.env.example
+
+# Local agent/tool state
+.freebuff/
+
+# Local-only notes and reference dumps
+knowledge.md
+AUDIT.md
+threejs-skills/
+
+.DS_Store
+Thumbs.db
