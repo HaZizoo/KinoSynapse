@@ -1,0 +1,19 @@
+{
+  "name": "kinosynapse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KinoSynapse — AI-powered movie discovery built with React 19, TypeScript, Express 5 and TMDB",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently --kill-others-on-fail --names server,client --prefix-colors blue,magenta \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "build": "npm --prefix server run build && npm --prefix client run build",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix client run typecheck",
+    "test": "npm --prefix server test && npm --prefix client test"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}
