@@ -298,12 +298,18 @@ export async function getMovieSnapshot(movieId: number): Promise<MovieSnapshot> 
 export async function searchMovies(query: string, { page = 1 }: { page?: number } = {}): Promise<PaginatedMovies> {
   if (offline) return catalogTextSearch(query, page);
 
-  const data = await request<TmdbPaginated<TmdbMovie>>('/search/movie', {
-    query,
-    include_adult: false,
-    page,
-  });
-  return toPaginatedMovies(data);
+  try {
+    const data = await request<TmdbPaginated<TmdbMovie>>('/search/movie', {
+      query,
+      include_adult: false,
+      page,
+    });
+    return toPaginatedMovies(data);
+  } catch (err) {
+    // A rejected key, rate limit or outage must never empty the search page.
+    markOffline(err instanceof Error ? err.message : 'search request failed');
+    return catalogTextSearch(query, page);
+  }
 }
 
 export async function discoverMovies(

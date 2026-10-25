@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Clapperboard, Play, Star } from 'lucide-react';
+import { ArrowLeft, Play, Star } from 'lucide-react';
 import { getMovie } from '../api/client';
 import type { MovieDetails } from '../api/types';
+import { ActorAvatar } from '../components/ActorAvatar';
 import { ErrorState } from '../components/Feedback';
 import { SafeImage } from '../components/SafeImage';
 import { WatchlistButton } from '../components/WatchlistButton';
@@ -211,15 +212,10 @@ export default function MovieDetail() {
                   {cast.map((person) => (
                     <li key={person.id} className="group">
                       <div className="aspect-square overflow-hidden border border-line bg-elevated">
-                        <SafeImage
-                          src={person.profileUrl}
-                          alt={`${person.name} portrait`}
+                        <ActorAvatar
+                          name={person.name}
+                          profileUrl={person.profileUrl}
                           className="h-full w-full object-cover grayscale transition duration-500 group-hover:grayscale-0"
-                          fallback={
-                            <div className="grid h-full place-items-center text-muted">
-                              <Clapperboard className="size-6" aria-hidden="true" />
-                            </div>
-                          }
                         />
                       </div>
                       <p className="mt-2 truncate text-sm font-medium text-cream">{person.name}</p>
