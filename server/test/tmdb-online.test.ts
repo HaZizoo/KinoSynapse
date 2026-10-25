@@ -65,6 +65,60 @@ const detailsFixture = {
   },
 };
 
+const tvFixture = {
+  id: 1396,
+  name: 'Breaking Bad',
+  original_name: 'Breaking Bad',
+  overview: 'A chemistry teacher turns to crime.',
+  first_air_date: '2008-01-20',
+  poster_path: '/breaking-bad.jpg',
+  backdrop_path: '/breaking-bad-backdrop.jpg',
+  vote_average: 8.94,
+  vote_count: 15_000,
+  popularity: 90,
+};
+
+const tvDetailsFixture = {
+  ...tvFixture,
+  tagline: 'All bad things must come to an end.',
+  status: 'Ended',
+  episode_run_time: [47],
+  genres: [
+    { id: 18, name: 'Drama' },
+    { id: 80, name: 'Crime' },
+  ],
+  homepage: 'https://example.com/breaking-bad',
+  networks: [{ name: 'AMC' }],
+  number_of_seasons: 5,
+  number_of_episodes: 62,
+  last_air_date: '2013-09-29',
+  in_production: false,
+  created_by: [{ id: 66633, name: 'Vince Gilligan' }],
+  seasons: [
+    { season_number: 0, name: 'Specials', episode_count: 8, air_date: null, poster_path: null },
+    {
+      season_number: 1,
+      name: 'Season 1',
+      overview: 'The pilot season.',
+      episode_count: 7,
+      air_date: '2008-01-20',
+      poster_path: '/season-1.jpg',
+    },
+  ],
+  credits: {
+    cast: [
+      { id: 17419, name: 'Bryan Cranston', character: 'Walter White', profile_path: '/bryan.jpg' },
+      { id: 84497, name: 'Aaron Paul', character: 'Jesse Pinkman', profile_path: null },
+    ],
+  },
+  content_ratings: { results: [{ iso_3166_1: 'US', rating: 'TV-MA' }] },
+  videos: {
+    results: [
+      { key: 'HhesaQXLuRY', name: 'Season 1 Trailer', site: 'YouTube', type: 'Trailer' },
+    ],
+  },
+};
+
 nock.disableNetConnect();
 nock.enableNetConnect((host) => host.includes('127.0.0.1') || host.includes('localhost'));
 
@@ -153,6 +207,98 @@ describe('live TMDB mode', () => {
     assert.equal(res.body.source, 'discover');
     assert.equal(res.body.totalResults, 20);
     assert.equal(res.body.results[0].title, 'The Matrix');
+  });
+
+  test('maps a series payload into the public shape', async () => {
+    nock(TMDB_API).get('/3/tv/1396').query(true).reply(200, tvDetailsFixture);
+
+    const res = await request(app).get('/api/tv/1396');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.mediaType, 'tv');
+    assert.equal(res.body.title, 'Breaking Bad');
+    assert.equal(res.body.releaseDate, '2008-01-20');
+    assert.equal(res.body.episodeRunTime, 47);
+    assert.equal(res.body.certification, 'TV-MA');
+    assert.equal(res.body.creators[0].name, 'Vince Gilligan');
+    assert.deepEqual(res.body.networks, ['AMC']);
+    assert.equal(res.body.cast[0].profileUrl, 'https://image.tmdb.org/t/p/w185/bryan.jpg');
+    assert.equal(res.body.cast[1].profileUrl, null);
+    assert.equal(res.body.trailer.key, 'HhesaQXLuRY');
+    // Season 0 (specials) is not a watchable season and is filtered out.
+    assert.equal(res.body.seasons.length, 1);
+    assert.equal(res.body.seasons[0].episodeCount, 7);
+    assert.equal(res.body.seasons[0].posterUrl, 'https://image.tmdb.org/t/p/w342/season-1.jpg');
+    assert.equal(res.body.posterUrl, 'https://image.tmdb.org/t/p/w500/breaking-bad.jpg');
+  });
+
+  test('serves the series feed from TMDB /discover/tv', async () => {
+    nock(TMDB_API)
+      .get('/3/discover/tv')
+      .query((query) => query.api_key === process.env.TMDB_API_KEY)
+      .reply(200, { page: 1, total_pages: 4, total_results: 80, results: [tvFixture] });
+
+    const res = await request(app).get('/api/tv?page=1');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'discover');
+    assert.equal(res.body.totalResults, 80);
+    assert.equal(res.body.results[0].title, 'Breaking Bad');
+    assert.equal(res.body.results[0].mediaType, 'tv');
+  });
+
+  test('search /api/search uses TMDB /search/multi and drops people', async () => {
+    nock(TMDB_API)
+      .get('/3/search/multi')
+      .query(
+        (query) => query.api_key === process.env.TMDB_API_KEY && query.query === 'breaking',
+      )
+      .reply(200, {
+        page: 1,
+        total_pages: 1,
+        total_results: 3,
+        results: [
+          { ...movieFixture, media_type: 'movie' },
+          { ...tvFixture, media_type: 'tv' },
+          { id: 1, name: 'A Person', media_type: 'person' },
+        ],
+      });
+
+    const res = await request(app).get('/api/search?query=breaking');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'search');
+    assert.equal(res.body.results.length, 2);
+    assert.deepEqual(
+      res.body.results.map((entry: { mediaType: string }) => entry.mediaType),
+      ['movie', 'tv'],
+    );
+    assert.equal(res.body.results[1].title, 'Breaking Bad');
+  });
+
+  test('discovers series with first-air-date filters and TV genres', async () => {
+    nock(TMDB_API)
+      .get('/3/genre/tv/list')
+      .query(true)
+      .reply(200, { genres: [{ id: 18, name: 'Drama' }] });
+
+    nock(TMDB_API)
+      .get('/3/discover/tv')
+      .query(
+        (query) =>
+          query.api_key === process.env.TMDB_API_KEY &&
+          query.with_genres === '18' &&
+          query['first_air_date.gte'] === '2008-01-01' &&
+          query['first_air_date.lte'] === '2008-12-31' &&
+          query.sort_by === 'vote_average.desc',
+      )
+      .reply(200, { page: 1, total_pages: 1, total_results: 1, results: [tvFixture] });
+
+    const res = await request(app).get('/api/tv/discover?genre=drama&year=2008&sortBy=rating');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'discover');
+    assert.equal(res.body.results[0].title, 'Breaking Bad');
   });
 
   test('falls back to the catalog when TMDB rejects the key', async () => {

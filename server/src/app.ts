@@ -9,6 +9,7 @@ import { isTmdbOffline } from './lib/tmdb.js';
 import authRoutes from './routes/auth.routes.js';
 import movieRoutes from './routes/movies.routes.js';
 import searchRoutes from './routes/search.routes.js';
+import tvRoutes from './routes/tv.routes.js';
 import watchlistRoutes from './routes/watchlist.routes.js';
 
 function allowedOrigins(value: string): string | string[] {
@@ -55,6 +56,7 @@ export function createApp(): Express {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/movies', movieRoutes);
+  app.use('/api/tv', tvRoutes);
   app.use('/api/watchlist', watchlistRoutes);
   app.use('/api/search', searchRoutes);
 

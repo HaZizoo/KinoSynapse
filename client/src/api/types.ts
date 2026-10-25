@@ -36,11 +36,75 @@ export interface MovieDetails extends MovieSummary {
   revenue: number | null;
 }
 
+export interface TvSummary {
+  id: number;
+  mediaType: 'tv';
+  title: string;
+  overview: string;
+  /** First air date. */
+  releaseDate: string | null;
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  rating: { average: number; count: number };
+  popularity: number | null;
+}
+
+export interface TvSeasonSummary {
+  seasonNumber: number;
+  name: string;
+  overview: string;
+  episodeCount: number;
+  airDate: string | null;
+  posterUrl: string | null;
+}
+
+export interface TvDetails extends TvSummary {
+  originalTitle: string | null;
+  tagline: string | null;
+  status: string | null;
+  genres: Genre[];
+  certification: string | null;
+  homepage: string | null;
+  creators: Array<{ id: number; name: string }>;
+  cast: CastMember[];
+  trailer: { key: string; name: string; site: string } | null;
+  episodeRunTime: number | null;
+  numberOfSeasons: number;
+  numberOfEpisodes: number;
+  lastAirDate: string | null;
+  inProduction: boolean;
+  networks: string[];
+  seasons: TvSeasonSummary[];
+}
+
+/** A film or a series, as returned by the mixed search endpoint. */
+export type MediaSummary = (MovieSummary & { mediaType?: 'movie' }) | TvSummary;
+
 export interface PaginatedMovies {
   page: number;
   totalPages: number;
   totalResults: number;
   results: MovieSummary[];
+}
+
+export interface PaginatedTv {
+  page: number;
+  totalPages: number;
+  totalResults: number;
+  results: TvSummary[];
+  source?: 'discover' | 'search' | 'catalog';
+}
+
+export interface PaginatedMedia {
+  page: number;
+  totalPages: number;
+  totalResults: number;
+  results: MediaSummary[];
+}
+
+export interface MultiSearchResponse extends PaginatedMedia {
+  query: string;
+  source: 'search' | 'catalog';
 }
 
 export interface QueryInterpretation {

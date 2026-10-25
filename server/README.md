@@ -26,7 +26,7 @@ Requirements: Node.js 20+. MongoDB, TMDB and an LLM provider are all optional.
 
 | Dependency | Missing / failing behaviour |
 | --- | --- |
-| `TMDB_API_KEY` | Empty, shorter than 16 characters, or a placeholder (`demo_…`, `test…`, `your…`) → the bundled catalog serves movies, search and details. |
+| `TMDB_API_KEY` | Empty, shorter than 16 characters, or a placeholder (`demo_…`, `test…`, `your…`) → the bundled catalog serves films, series, search and details. |
 | Live TMDB | A 401/403, rate limit, timeout or network error switches the process to the catalog on first failure; the request still succeeds. A 404 stays a 404. |
 | `LLM_API_KEY` | Semantic search uses the deterministic local interpreter (`interpret.ts`). |
 | LLM provider | Any provider error falls back to the local interpreter instead of failing the request. |
@@ -113,6 +113,28 @@ Calls TMDB `discover/movie` with whitelisted filters: `genre` (name or TMDB id),
 #### `GET /api/movies/:id`
 
 Full details for one movie: overview, runtime, genres, rating, certification, director, up to 20 cast members, and trailer. Live mode makes one TMDB call thanks to `append_to_response=credits,release_dates,videos`. Unknown ids return `404`.
+
+### Series
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/api/tv?page=1` | Popular series, TMDB `discover/tv`, catalog fallback |
+| `GET` | `/api/tv/search?query=…` | TMDB `search/tv`, catalog fallback |
+| `GET` | `/api/tv/discover?genre=&year=&minRating=&sortBy=` | TMDB `discover/tv` with `first_air_date` filters |
+| `GET` | `/api/tv/:id` | Details, seasons, creators, cast, certification, trailer |
+| `GET` | `/api/search?query=…` | Films **and** series in one page (TMDB `search/multi`) |
+
+#### `GET /api/tv/:id`
+
+Series details normalized into `TvDetails`: `title` is TMDB's `name`, `releaseDate` is the first air date, plus `numberOfSeasons`, `numberOfEpisodes`, `lastAirDate`, `networks`, `creators`, `episodeRunTime`, up to 20 cast members and a `seasons` list (season 0 / specials filtered out). Live mode appends `credits,content_ratings,videos`. Unknown ids return `404` with `"Series not found."`.
+
+#### `GET /api/tv/discover?genre=drama&year=2008&sortBy=rating`
+
+Series genres come from TMDB's separate `/genre/tv/list` (ids differ from films), and `year` maps to `first_air_date.gte`/`first_air_date.lte`. `sortBy` accepts `popularity`, `rating`, `newest`, `popularity.desc`, `vote_average.desc` or `first_air_date.desc`. Offline, the same filters run against the bundled series catalog.
+
+#### `GET /api/search?query=breaking%20bad`
+
+`search/multi` results keep only `media_type` `movie` and `tv` (people are dropped) and are normalized into one `MediaSummary` shape with a discriminating `mediaType`. Offline, films and series are scored with the same token rules and merged.
 
 ### Auth
 
@@ -231,7 +253,7 @@ npm test           # node --import tsx --test
 npm test
 ```
 
-The primary suite runs entirely in-process: no MongoDB binary, no TMDB key, no LLM key, no outbound network. It covers health/runtime modes, the catalog feed and pagination, movie details, 404s, deterministic semantic filtering, JWT auth (including a forged issuer), watchlist duplicates and caps, and review creation/update/deletion with ownership checks. A second file uses `nock` to verify TMDB response mapping and that a rejected key degrades to the catalog.
+The primary suite runs entirely in-process: no MongoDB binary, no TMDB key, no LLM key, no outbound network. It covers health/runtime modes, the film and series catalog feeds and pagination, movie and series details, 404s, series discover filters, cross-media search, deterministic semantic filtering, JWT auth (including a forged issuer), watchlist duplicates and caps, and review creation/update/deletion with ownership checks. A second file uses `nock` to verify TMDB response mapping (`/discover/movie`, `/movie/:id`, `/search/movie`, `/search/multi`, `/tv/:id`, `/discover/tv`, `/genre/tv/list`) and that a rejected key degrades to the catalog.
 
 ## Notes
 

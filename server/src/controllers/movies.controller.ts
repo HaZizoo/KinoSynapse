@@ -13,9 +13,10 @@ import {
   parseSearchQuery,
 } from '../lib/validation.js';
 import { currentUser } from '../lib/currentUser.js';
+import { parseMovieSortBy, resolveGenre } from '../lib/discover.js';
 import { reviewRepository } from '../repositories/index.js';
 import { catalogFilterMovies } from '../services/fallbackCatalog.js';
-import type { DiscoverFilters, Genre, QueryInterpretation, SortOption } from '../types.js';
+import type { DiscoverFilters, QueryInterpretation } from '../types.js';
 
 export async function listLatestMovies(req: Request, res: Response): Promise<void> {
   const page = parsePage(req.query.page);
@@ -40,56 +41,13 @@ export async function searchMovies(req: Request, res: Response): Promise<void> {
   });
 }
 
-const SORT_ALIASES: Record<string, SortOption> = {
-  popularity: 'popularity.desc',
-  'popularity.desc': 'popularity.desc',
-  rating: 'vote_average.desc',
-  'vote_average.desc': 'vote_average.desc',
-  newest: 'primary_release_date.desc',
-  release_date: 'primary_release_date.desc',
-  'primary_release_date.desc': 'primary_release_date.desc',
-};
-
-function parseSortBy(value: unknown): SortOption {
-  if (value === undefined || value === null || value === '') return 'popularity.desc';
-  if (typeof value !== 'string') {
-    throw new ApiError(400, 'Query parameter "sortBy" must be a string.');
-  }
-
-  const sort = SORT_ALIASES[value.trim().toLowerCase()];
-  if (!sort) {
-    throw new ApiError(
-      400,
-      'Query parameter "sortBy" must be one of popularity, rating, newest, popularity.desc, vote_average.desc or primary_release_date.desc.',
-    );
-  }
-  return sort;
-}
-
-/** Accept either a TMDB genre id or a genre name (case-insensitive). */
-async function resolveGenre(value: string | null): Promise<Genre | null> {
-  if (!value) return null;
-
-  const genreMap = await tmdb.getGenreMap();
-  const byName = genreMap.get(value.toLowerCase());
-  if (byName) return byName;
-
-  if (/^\d+$/.test(value)) {
-    const id = Number(value);
-    const byId = [...genreMap.values()].find((genre) => genre.id === id);
-    if (byId) return byId;
-  }
-
-  throw new ApiError(400, `Unknown genre "${value}".`);
-}
-
 /**
  * Genre/year/rating discovery against TMDB `/discover/movie`, with the same
  * deterministic catalog fallback used by the rest of the API.
  */
 export async function discoverMovies(req: Request, res: Response): Promise<void> {
   const page = parsePage(req.query.page);
-  const sortBy = parseSortBy(req.query.sortBy);
+  const sortBy = parseMovieSortBy(req.query.sortBy);
   const year = parseOptionalYear(req.query.year);
   const minRating = parseOptionalRating(req.query.minRating);
   const genre = await resolveGenre(parseOptionalQuery(req.query.genre, 'genre'));

@@ -14,15 +14,57 @@ export interface RatingSummary {
   count: number;
 }
 
-export interface MovieSummary {
+export type MediaType = 'movie' | 'tv';
+
+/** Shape shared by films and series so cards, grids and search stay generic. */
+export interface MediaSummary {
   id: number;
+  mediaType: MediaType;
   title: string;
   overview: string;
+  /** Release date for films, first air date for series. */
   releaseDate: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
   rating: RatingSummary;
   popularity: number | null;
+}
+
+export interface MovieSummary extends MediaSummary {
+  mediaType: 'movie';
+}
+
+export interface TvSummary extends MediaSummary {
+  mediaType: 'tv';
+}
+
+export interface TvSeasonSummary {
+  seasonNumber: number;
+  name: string;
+  overview: string;
+  episodeCount: number;
+  airDate: string | null;
+  posterUrl: string | null;
+}
+
+export interface TvDetails extends TvSummary {
+  originalTitle: string | null;
+  tagline: string | null;
+  status: string | null;
+  genres: Genre[];
+  certification: string | null;
+  homepage: string | null;
+  creators: Array<{ id: number; name: string }>;
+  cast: CastMember[];
+  trailer: { key: string; name: string; site: string } | null;
+  /** Typical episode length in minutes. */
+  episodeRunTime: number | null;
+  numberOfSeasons: number;
+  numberOfEpisodes: number;
+  lastAirDate: string | null;
+  inProduction: boolean;
+  networks: string[];
+  seasons: TvSeasonSummary[];
 }
 
 export interface CastMember {
@@ -54,6 +96,21 @@ export interface PaginatedMovies {
   results: MovieSummary[];
 }
 
+/** Mixed film/series pages used by the cross-media search endpoint. */
+export interface PaginatedMedia {
+  page: number;
+  totalPages: number;
+  totalResults: number;
+  results: MediaSummary[];
+}
+
+export interface PaginatedTv {
+  page: number;
+  totalPages: number;
+  totalResults: number;
+  results: TvSummary[];
+}
+
 export interface MovieSnapshot {
   movieId: number;
   title: string;
@@ -62,7 +119,11 @@ export interface MovieSnapshot {
   voteAverage: number;
 }
 
-export type SortOption = 'popularity.desc' | 'vote_average.desc' | 'primary_release_date.desc';
+export type SortOption =
+  | 'popularity.desc'
+  | 'vote_average.desc'
+  | 'primary_release_date.desc'
+  | 'first_air_date.desc';
 
 export interface QueryInterpretation {
   genres: string[];
@@ -82,6 +143,15 @@ export interface DiscoverFilters {
   with_keywords?: string;
   'primary_release_date.gte'?: string;
   'primary_release_date.lte'?: string;
+  'vote_average.gte'?: number;
+  'vote_count.gte'?: number;
+}
+
+export interface TvDiscoverFilters {
+  sort_by: SortOption;
+  with_genres?: string;
+  'first_air_date.gte'?: string;
+  'first_air_date.lte'?: string;
   'vote_average.gte'?: number;
   'vote_count.gte'?: number;
 }

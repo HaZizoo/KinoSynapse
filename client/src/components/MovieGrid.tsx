@@ -1,17 +1,21 @@
 import { MovieCard } from './MovieCard';
-import type { MovieSummary } from '../api/types';
+import type { MediaSummary } from '../api/types';
 
 const GRID_CLASSES = 'grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
 
 interface MovieGridProps {
-  movies: MovieSummary[];
+  items: MediaSummary[];
 }
 
-export function MovieGrid({ movies }: MovieGridProps) {
+export function MovieGrid({ items }: MovieGridProps) {
   return (
     <div className={GRID_CLASSES}>
-      {movies.map((movie, index) => (
-        <MovieCard key={movie.id} movie={movie} priority={index < 5} />
+      {items.map((media, index) => (
+        <MovieCard
+          key={`${media.mediaType === 'tv' ? 'tv' : 'movie'}-${media.id}`}
+          media={media}
+          priority={index < 5}
+        />
       ))}
     </div>
   );
@@ -19,7 +23,7 @@ export function MovieGrid({ movies }: MovieGridProps) {
 
 export function MovieGridSkeleton({ count = 10 }: { count?: number }) {
   return (
-    <div className={GRID_CLASSES} aria-busy="true" aria-label="Loading movies">
+    <div className={GRID_CLASSES} aria-busy="true" aria-label="Loading titles">
       {Array.from({ length: count }, (_, index) => (
         <div key={index} className="flex flex-col">
           <div className="aspect-[2/3] w-full border border-line bg-elevated motion-safe:animate-pulse" />

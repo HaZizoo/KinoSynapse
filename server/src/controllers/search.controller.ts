@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import * as tmdb from '../lib/tmdb.js';
 import { interpretMovieQuery, isLlmConfigured } from '../lib/llm.js';
 import { interpretLocally } from '../lib/interpret.js';
-import { parseBody, parsePage } from '../lib/validation.js';
+import { parseBody, parsePage, parseSearchQuery } from '../lib/validation.js';
 import { catalogFilterMovies } from '../services/fallbackCatalog.js';
 import type {
   DiscoverFilters,
@@ -147,6 +147,22 @@ async function runLiveSearch(
   }
 
   return { result, source, keywordIds };
+}
+
+/**
+ * Cross-media title search. One request returns films and series together, which
+ * is what a browse/search box needs; `/semantic` below stays film-only.
+ */
+export async function multiSearch(req: Request, res: Response): Promise<void> {
+  const query = parseSearchQuery(req.query.query);
+  const page = parsePage(req.query.page);
+
+  const result = await tmdb.searchMulti(query, { page });
+  res.json({
+    query,
+    source: tmdb.tmdbMode() === 'catalog' ? 'catalog' : 'search',
+    ...result,
+  });
 }
 
 export async function semanticSearch(req: Request, res: Response): Promise<void> {

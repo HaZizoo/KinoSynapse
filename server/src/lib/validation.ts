@@ -28,12 +28,16 @@ export function parsePage(value: unknown, fallback = 1): number {
   return page;
 }
 
-export function parseMovieId(value: unknown): number {
-  const movieId = Number(value);
-  if (!Number.isInteger(movieId) || movieId <= 0) {
-    throw new ApiError(400, 'Movie id must be a positive integer.');
+export function parsePositiveId(value: unknown, label = 'Movie'): number {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiError(400, `${label} id must be a positive integer.`);
   }
-  return movieId;
+  return id;
+}
+
+export function parseMovieId(value: unknown): number {
+  return parsePositiveId(value, 'Movie');
 }
 
 export function parseSearchQuery(value: unknown): string {

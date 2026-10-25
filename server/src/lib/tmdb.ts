@@ -4,19 +4,31 @@ import { ApiError } from './errors.js';
 import { imageUrl } from './images.js';
 import {
   CATALOG_GENRES,
+  CATALOG_TV_GENRES,
   catalogDetails,
   catalogLatest,
+  catalogMixedSearch,
   catalogSnapshot,
   catalogTextSearch,
+  catalogTvDetails,
+  catalogTvFeed,
+  catalogTvSearch,
   FALLBACK_CATALOG,
+  FALLBACK_SERIES,
 } from '../services/fallbackCatalog.js';
 import type {
   DiscoverFilters,
   Genre,
+  MediaSummary,
   MovieDetails,
   MovieSnapshot,
   MovieSummary,
+  PaginatedMedia,
   PaginatedMovies,
+  PaginatedTv,
+  TvDetails,
+  TvDiscoverFilters,
+  TvSummary,
 } from '../types.js';
 
 interface TmdbMovie {
@@ -68,6 +80,50 @@ interface TmdbPaginated<T> {
   total_pages?: number;
   total_results?: number;
   results?: T[];
+}
+
+interface TmdbTv {
+  id: number;
+  name: string;
+  original_name?: string;
+  overview?: string;
+  first_air_date?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  vote_average?: number;
+  vote_count?: number;
+  popularity?: number;
+}
+
+interface TmdbSeason {
+  season_number?: number;
+  name?: string;
+  overview?: string;
+  episode_count?: number;
+  air_date?: string | null;
+  poster_path?: string | null;
+}
+
+interface TmdbTvDetails extends TmdbTv {
+  tagline?: string;
+  status?: string;
+  episode_run_time?: number[];
+  genres?: Array<{ id: number; name: string }>;
+  homepage?: string;
+  networks?: Array<{ name: string }>;
+  number_of_seasons?: number;
+  number_of_episodes?: number;
+  last_air_date?: string | null;
+  in_production?: boolean;
+  created_by?: TmdbPerson[];
+  seasons?: TmdbSeason[];
+  credits?: { cast?: TmdbPerson[] };
+  content_ratings?: { results?: Array<{ iso_3166_1?: string; rating?: string }> };
+  videos?: { results?: Array<{ key: string; name: string; site: string; type: string }> };
+}
+
+interface TmdbMultiResult extends TmdbMovie, TmdbTv {
+  media_type?: 'movie' | 'tv' | 'person';
 }
 
 const http = axios.create({
@@ -150,6 +206,7 @@ function roundRating(value: number | undefined): number {
 export function toMovieSummary(movie: TmdbMovie): MovieSummary {
   return {
     id: movie.id,
+    mediaType: 'movie',
     title: movie.title,
     overview: movie.overview ?? '',
     releaseDate: movie.release_date || null,
@@ -169,6 +226,77 @@ function toPaginatedMovies(data: TmdbPaginated<TmdbMovie>): PaginatedMovies {
     totalPages: Math.min(data.total_pages ?? 0, 500),
     totalResults: data.total_results ?? 0,
     results: (data.results ?? []).map(toMovieSummary),
+  };
+}
+
+export function toTvSummary(show: TmdbTv): TvSummary {
+  return {
+    id: show.id,
+    mediaType: 'tv',
+    title: show.name,
+    overview: show.overview ?? '',
+    releaseDate: show.first_air_date || null,
+    posterUrl: imageUrl(show.poster_path),
+    backdropUrl: imageUrl(show.backdrop_path ?? show.poster_path, 'w1280'),
+    rating: {
+      average: roundRating(show.vote_average),
+      count: show.vote_count ?? 0,
+    },
+    popularity: show.popularity ?? null,
+  };
+}
+
+function toPaginatedTv(data: TmdbPaginated<TmdbTv>): PaginatedTv {
+  return {
+    page: data.page ?? 1,
+    totalPages: Math.min(data.total_pages ?? 0, 500),
+    totalResults: data.total_results ?? 0,
+    results: (data.results ?? []).map(toTvSummary),
+  };
+}
+
+export function toTvDetails(show: TmdbTvDetails): TvDetails {
+  const trailer = (show.videos?.results ?? []).find(
+    (video) => video.site === 'YouTube' && video.type === 'Trailer',
+  );
+  const usRating = (show.content_ratings?.results ?? []).find(
+    (entry) => entry.iso_3166_1 === 'US' && entry.rating,
+  );
+  const episodes = show.seasons ?? [];
+  const runTimes = (show.episode_run_time ?? []).filter((value) => value > 0);
+
+  return {
+    ...toTvSummary(show),
+    originalTitle: show.original_name ?? null,
+    tagline: show.tagline || null,
+    status: show.status ?? null,
+    genres: (show.genres ?? []).map((entry) => ({ id: entry.id, name: entry.name })),
+    certification: usRating?.rating || null,
+    homepage: show.homepage || null,
+    creators: (show.created_by ?? []).map((person) => ({ id: person.id, name: person.name })),
+    cast: (show.credits?.cast ?? []).slice(0, 20).map((person) => ({
+      id: person.id,
+      name: person.name,
+      character: person.character || null,
+      profileUrl: imageUrl(person.profile_path, 'w185'),
+    })),
+    trailer: trailer ? { key: trailer.key, name: trailer.name, site: trailer.site } : null,
+    episodeRunTime: runTimes.length > 0 ? Math.min(...runTimes) : null,
+    numberOfSeasons: show.number_of_seasons ?? 0,
+    numberOfEpisodes: show.number_of_episodes ?? 0,
+    lastAirDate: show.last_air_date || null,
+    inProduction: show.in_production ?? false,
+    networks: (show.networks ?? []).map((network) => network.name),
+    seasons: episodes
+      .filter((season) => (season.season_number ?? 0) > 0)
+      .map((season) => ({
+        seasonNumber: season.season_number ?? 0,
+        name: season.name || `Season ${season.season_number ?? 0}`,
+        overview: season.overview ?? '',
+        episodeCount: season.episode_count ?? 0,
+        airDate: season.air_date || null,
+        posterUrl: imageUrl(season.poster_path, 'w342'),
+      })),
   };
 }
 
@@ -193,6 +321,7 @@ export function toMovieDetails(movie: TmdbDetails): MovieDetails {
 
   return {
     id: movie.id,
+    mediaType: 'movie',
     title: movie.title,
     originalTitle: movie.original_title ?? null,
     tagline: movie.tagline || null,
@@ -227,8 +356,8 @@ function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function catalogOrThrow<T>(value: T | null): T {
-  if (value === null) throw new ApiError(404, 'Movie not found.');
+function catalogOrThrow<T>(value: T | null, label = 'Movie'): T {
+  if (value === null) throw new ApiError(404, `${label} not found.`);
   return value;
 }
 
@@ -328,6 +457,109 @@ export async function discoverMovies(
   return toPaginatedMovies(data);
 }
 
+/** Popular series feed, newest-first discover filters available separately. */
+export async function getTvFeed({ page = 1 }: { page?: number } = {}): Promise<PaginatedTv> {
+  if (offline) return catalogTvFeed(page);
+
+  try {
+    const data = await request<TmdbPaginated<TmdbTv>>('/discover/tv', {
+      sort_by: 'popularity.desc',
+      'vote_count.gte': 50,
+      include_adult: false,
+      page,
+    });
+    return toPaginatedTv(data);
+  } catch (err) {
+    markOffline(err instanceof Error ? err.message : 'request failed');
+    return catalogTvFeed(page);
+  }
+}
+
+export async function searchTv(
+  query: string,
+  { page = 1 }: { page?: number } = {},
+): Promise<PaginatedTv> {
+  if (offline) return catalogTvSearch(query, page);
+
+  try {
+    const data = await request<TmdbPaginated<TmdbTv>>('/search/tv', {
+      query,
+      include_adult: false,
+      page,
+    });
+    return toPaginatedTv(data);
+  } catch (err) {
+    markOffline(err instanceof Error ? err.message : 'request failed');
+    return catalogTvSearch(query, page);
+  }
+}
+
+/**
+ * Cross-media title search: one query returns films and series interleaved the
+ * way TMDB ranks them. Offline it merges the two catalog lists by relevance.
+ */
+export async function searchMulti(
+  query: string,
+  { page = 1 }: { page?: number } = {},
+): Promise<PaginatedMedia> {
+  if (offline) return catalogMixedSearch(query, page);
+
+  try {
+    const data = await request<TmdbPaginated<TmdbMultiResult>>('/search/multi', {
+      query,
+      include_adult: false,
+      page,
+    });
+
+    const results: MediaSummary[] = [];
+    for (const entry of data.results ?? []) {
+      if (entry.media_type === 'movie') results.push(toMovieSummary(entry));
+      else if (entry.media_type === 'tv') results.push(toTvSummary(entry));
+    }
+
+    return {
+      page: data.page ?? 1,
+      totalPages: Math.min(data.total_pages ?? 0, 500),
+      totalResults: data.total_results ?? results.length,
+      results,
+    };
+  } catch (err) {
+    markOffline(err instanceof Error ? err.message : 'request failed');
+    return catalogMixedSearch(query, page);
+  }
+}
+
+export async function discoverTv(
+  filters: TvDiscoverFilters,
+  { page = 1 }: { page?: number } = {},
+): Promise<PaginatedTv> {
+  if (offline) {
+    throw new ApiError(503, 'The live TMDB series catalog is unavailable.');
+  }
+
+  const data = await request<TmdbPaginated<TmdbTv>>('/discover/tv', {
+    include_adult: false,
+    ...filters,
+    page,
+  });
+  return toPaginatedTv(data);
+}
+
+export async function getTvDetails(showId: number): Promise<TvDetails> {
+  if (offline) return catalogOrThrow(catalogTvDetails(showId), 'Series');
+
+  try {
+    const data = await request<TmdbTvDetails>(`/tv/${showId}`, {
+      append_to_response: 'credits,content_ratings,videos',
+    });
+    return toTvDetails(data);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) throw err;
+    markOffline(err instanceof Error ? err.message : 'request failed');
+    return catalogOrThrow(catalogTvDetails(showId), 'Series');
+  }
+}
+
 let genreCache: Promise<Map<string, Genre>> | undefined;
 
 function catalogGenreMap(): Map<string, Genre> {
@@ -378,5 +610,32 @@ export async function resolveKeywordIds(keywords: readonly string[]): Promise<nu
   return [...new Set(ids.filter((id): id is number => id !== null))];
 }
 
+let tvGenreCache: Promise<Map<string, Genre>> | undefined;
+
+function catalogTvGenreMap(): Map<string, Genre> {
+  return new Map(CATALOG_TV_GENRES.map((genre) => [genre.name.toLowerCase(), genre]));
+}
+
+/**
+ * Map of lowercased TV genre name -> genre id. TMDB keeps a separate genre list
+ * for series (ids differ from the film list), so this is cached independently.
+ */
+export async function getTvGenreMap(): Promise<Map<string, Genre>> {
+  if (offline) return catalogTvGenreMap();
+
+  if (!tvGenreCache) {
+    tvGenreCache = request<{ genres?: Genre[] }>('/genre/tv/list')
+      .then((data) => new Map((data.genres ?? []).map((genre) => [genre.name.toLowerCase(), genre])))
+      .catch((err: unknown) => {
+        tvGenreCache = undefined;
+        markOffline(err instanceof Error ? err.message : 'tv genre lookup failed');
+        return catalogTvGenreMap();
+      });
+  }
+
+  return tvGenreCache;
+}
+
 /** Exposed for diagnostics and health reporting. */
 export const CATALOG_SIZE = FALLBACK_CATALOG.length;
+export const CATALOG_SERIES_SIZE = FALLBACK_SERIES.length;

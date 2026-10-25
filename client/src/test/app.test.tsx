@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
-import type { MovieDetails, MovieSummary, WatchlistItem } from '../api/types';
+import type { MovieDetails, MovieSummary, TvDetails, TvSummary, WatchlistItem } from '../api/types';
 
 const matrix: MovieSummary = {
   id: 603,
@@ -86,6 +86,50 @@ const detailPayload: MovieDetails = {
   revenue: 0,
 };
 
+const breakingBad: TvSummary = {
+  id: 1396,
+  mediaType: 'tv',
+  title: 'Breaking Bad',
+  overview: 'A chemistry teacher turns to crime.',
+  releaseDate: '2008-01-20',
+  posterUrl: 'https://image.tmdb.org/t/p/w500/breaking-bad.jpg',
+  backdropUrl: 'https://image.tmdb.org/t/p/w1280/breaking-bad-backdrop.jpg',
+  rating: { average: 8.9, count: 15_000 },
+  popularity: 90,
+};
+
+const tvDetailPayload: TvDetails = {
+  ...breakingBad,
+  originalTitle: 'Breaking Bad',
+  tagline: 'All bad things must come to an end.',
+  status: 'Ended',
+  genres: [{ id: 18, name: 'Drama' }],
+  certification: 'TV-MA',
+  homepage: null,
+  creators: [{ id: 1, name: 'Vince Gilligan' }],
+  cast: [
+    { id: 2, name: 'Bryan Cranston', character: 'Walter White', profileUrl: null },
+    { id: 3, name: 'Aaron Paul', character: 'Jesse Pinkman', profileUrl: null },
+  ],
+  trailer: { key: 'HhesaQXLuRY', name: 'Season 1 Trailer', site: 'YouTube' },
+  episodeRunTime: 47,
+  numberOfSeasons: 5,
+  numberOfEpisodes: 62,
+  lastAirDate: '2013-09-29',
+  inProduction: false,
+  networks: ['AMC'],
+  seasons: [
+    {
+      seasonNumber: 1,
+      name: 'Season 1',
+      overview: '',
+      episodeCount: 7,
+      airDate: '2008-01-20',
+      posterUrl: null,
+    },
+  ],
+};
+
 const mockUser = { id: 'user-1', name: 'Ada', email: 'ada@example.com', watchlist: [], createdAt: '' };
 
 function respond(body: unknown, status = 200): Response {
@@ -118,6 +162,31 @@ function installApiMock() {
 
     if (url.pathname === '/api/search/semantic' && method === 'POST') {
       return respond(semanticPayload);
+    }
+
+    if (url.pathname === '/api/tv' && method === 'GET') {
+      return respond({
+        source: 'catalog',
+        page: 1,
+        totalPages: 1,
+        totalResults: 1,
+        results: [breakingBad],
+      });
+    }
+
+    if (url.pathname === '/api/tv/1396' && method === 'GET') {
+      return respond(tvDetailPayload);
+    }
+
+    if (url.pathname === '/api/search' && method === 'GET') {
+      return respond({
+        query: url.searchParams.get('query') ?? '',
+        source: 'catalog',
+        page: 1,
+        totalPages: 1,
+        totalResults: 2,
+        results: [matrix, breakingBad],
+      });
     }
 
     if (url.pathname === '/api/auth/login' && method === 'POST') {
@@ -235,6 +304,61 @@ describe('KinoSynapse frontend', () => {
     expect(
       screen.getByRole('button', { name: /add the matrix to your watchlist/i }),
     ).toBeInTheDocument();
+  });
+
+  it('loads the series feed on the Series tab and links to the series route', async () => {
+    const fetchMock = installApiMock();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await screen.findByText('The Matrix');
+    await user.click(screen.getByRole('tab', { name: 'Series' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Popular series' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Breaking Bad' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /view details for breaking bad/i }),
+    ).toHaveAttribute('href', '/tv/1396');
+    // Series cannot be saved yet, so the card shows a label instead of a button.
+    expect(screen.queryByRole('button', { name: /breaking bad.*watchlist/i })).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/tv?'))).toBe(true);
+  });
+
+  it('renders the series detail page with seasons, networks and initials', async () => {
+    window.history.pushState({}, '', '/tv/1396');
+    installApiMock();
+    render(<App />);
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Breaking Bad' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('5 seasons · 62 episodes')).toBeInTheDocument();
+    expect(screen.getByText('Season 1')).toBeInTheDocument();
+    expect(screen.getByText('Vince Gilligan')).toBeInTheDocument();
+    expect(screen.getByText('AMC')).toBeInTheDocument();
+    expect(screen.getByText('BC')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /watch trailer/i })).toHaveAttribute(
+      'href',
+      'https://www.youtube.com/watch?v=HhesaQXLuRY',
+    );
+  });
+
+  it('searches films and series together from the search page', async () => {
+    window.history.pushState({}, '', '/search?q=the');
+    const fetchMock = installApiMock();
+    render(<App />);
+
+    expect(await screen.findByText(/results for/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'The Matrix' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Breaking Bad' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /view details for breaking bad/i }),
+    ).toHaveAttribute('href', '/tv/1396');
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes('/api/search?query=the')),
+    ).toBe(true);
   });
 
   it('requires sign-in, then saves a movie with the JWT watchlist route', async () => {

@@ -5,9 +5,12 @@ import type {
   AuthResponse,
   MeResponse,
   MovieDetails,
+  MultiSearchResponse,
   PaginatedMovies,
+  PaginatedTv,
   RegisterInput,
   SemanticSearchResponse,
+  TvDetails,
   WatchlistResponse,
 } from './types';
 
@@ -114,6 +117,26 @@ export function getLatestMovies(page = 1, options: RequestOptions = {}): Promise
 
 export function getMovie(movieId: string | number, options: RequestOptions = {}): Promise<MovieDetails> {
   return request<MovieDetails>(`/api/movies/${movieId}`, options);
+}
+
+export function getTvShows(page = 1, options: RequestOptions = {}): Promise<PaginatedTv> {
+  return request<PaginatedTv>(`/api/tv?page=${page}`, options);
+}
+
+export function getTvShow(showId: string | number, options: RequestOptions = {}): Promise<TvDetails> {
+  return request<TvDetails>(`/api/tv/${showId}`, options);
+}
+
+/** Title search across films and series in a single request. */
+export function searchMedia(
+  query: string,
+  page = 1,
+  options: RequestOptions = {},
+): Promise<MultiSearchResponse> {
+  return request<MultiSearchResponse>(
+    `/api/search?query=${encodeURIComponent(query)}&page=${page}`,
+    options,
+  );
 }
 
 export function semanticSearch(

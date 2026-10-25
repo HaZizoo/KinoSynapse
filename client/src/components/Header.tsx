@@ -31,6 +31,16 @@ export function Header() {
           >
             Discover
           </NavLink>
+          <NavLink
+            to="/search"
+            className={({ isActive }) =>
+              `px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] transition ${
+                isActive ? 'text-cream' : 'text-muted hover:text-cream'
+              }`
+            }
+          >
+            Search
+          </NavLink>
         </nav>
 
         <div className="ml-auto flex items-center gap-2">

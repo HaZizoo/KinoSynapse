@@ -155,6 +155,106 @@ describe('movie search and discovery', () => {
   });
 });
 
+describe('series catalog and cross-media search', () => {
+  test('GET /api/tv serves the bundled series catalog, most popular first', async () => {
+    const res = await request(app).get('/api/tv?page=1');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'catalog');
+    assert.equal(res.body.totalResults, 12);
+    assert.equal(res.body.results.length, 12);
+
+    const show = res.body.results[0];
+    assert.equal(show.mediaType, 'tv');
+    assert.equal(show.title, 'Stranger Things');
+    assert.match(show.posterUrl, /^https:\/\/image\.tmdb\.org\/t\/p\/w500\//);
+
+    const popularity = res.body.results.map((entry: { popularity: number }) => entry.popularity);
+    assert.deepEqual(popularity, [...popularity].sort((a: number, b: number) => b - a));
+  });
+
+  test('GET /api/tv/search finds a series by name', async () => {
+    const res = await request(app).get('/api/tv/search?query=breaking%20bad');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'catalog');
+    assert.equal(res.body.results[0].title, 'Breaking Bad');
+    assert.equal(res.body.results[0].mediaType, 'tv');
+  });
+
+  test('GET /api/tv/:id returns series details with creators, cast and trailer', async () => {
+    const res = await request(app).get('/api/tv/1396');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.title, 'Breaking Bad');
+    assert.equal(res.body.mediaType, 'tv');
+    assert.equal(res.body.numberOfSeasons, 5);
+    assert.equal(res.body.numberOfEpisodes, 62);
+    assert.equal(res.body.creators[0].name, 'Vince Gilligan');
+    assert.ok(res.body.cast.length >= 5);
+    // Offline series have no portrait art, so the UI falls back to initials.
+    assert.equal(res.body.cast[0].profileUrl, null);
+    assert.equal(res.body.trailer.key, 'HhesaQXLuRY');
+    assert.match(res.body.backdropUrl, /^https:\/\/image\.tmdb\.org\/t\/p\/w1280\//);
+  });
+
+  test('GET /api/tv/:id separates 404s from invalid ids', async () => {
+    const missing = await request(app).get('/api/tv/999999');
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.message, 'Series not found.');
+
+    const invalid = await request(app).get('/api/tv/not-an-id');
+    assert.equal(invalid.status, 400);
+  });
+
+  test('GET /api/tv/discover filters the offline series catalog', async () => {
+    const res = await request(app).get(
+      '/api/tv/discover?genre=comedy&minRating=8.5&sortBy=rating',
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'catalog');
+    assert.ok(res.body.results.length > 0);
+    for (const show of res.body.results) {
+      assert.equal(show.mediaType, 'tv');
+      assert.ok(show.rating.average >= 8.5);
+      assert.match(show.posterUrl, /image\.tmdb\.org/);
+    }
+    assert.ok(res.body.results.some((show: { title: string }) => show.title === 'The Bear'));
+  });
+
+  test('GET /api/tv/discover rejects unknown genres and sort keys', async () => {
+    const genre = await request(app).get('/api/tv/discover?genre=nonsense');
+    assert.equal(genre.status, 400);
+
+    const sort = await request(app).get('/api/tv/discover?sortBy=primary_release_date.desc');
+    assert.equal(sort.status, 400);
+  });
+
+  test('GET /api/search returns films and series in one page', async () => {
+    const res = await request(app).get('/api/search?query=breaking%20bad');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'catalog');
+    assert.equal(res.body.query, 'breaking bad');
+
+    const titles = res.body.results.map((entry: { title: string }) => entry.title);
+    assert.ok(titles.includes('Breaking Bad'));
+    assert.ok(res.body.results.some((entry: { mediaType: string }) => entry.mediaType === 'tv'));
+
+    const broad = await request(app).get('/api/search?query=the');
+    const types = new Set(broad.body.results.map((entry: { mediaType: string }) => entry.mediaType));
+    assert.ok(types.has('movie'));
+    assert.ok(types.has('tv'));
+  });
+
+  test('GET /api/search validates the query', async () => {
+    const res = await request(app).get('/api/search?query=a');
+    assert.equal(res.status, 400);
+    assert.match(res.body.error.message, /at least 2 characters/);
+  });
+});
+
 describe('deterministic semantic search', () => {
   test('filters the catalog by genre and rating without an LLM', async () => {
     const res = await request(app)

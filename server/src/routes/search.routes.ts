@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { isTest } from '../config/env.js';
-import { semanticSearch } from '../controllers/search.controller.js';
+import { multiSearch, semanticSearch } from '../controllers/search.controller.js';
 
 const semanticLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -18,6 +18,7 @@ const semanticLimiter = rateLimit({
 
 const router = Router();
 
+router.get('/', multiSearch);
 router.post('/semantic', semanticLimiter, semanticSearch);
 
 export default router;

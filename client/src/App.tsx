@@ -10,6 +10,8 @@ import { WatchlistDrawer } from './components/WatchlistDrawer';
 import Dashboard from './pages/Dashboard';
 import MovieDetail from './pages/MovieDetail';
 import NotFound from './pages/NotFound';
+import Search from './pages/Search';
+import TvDetail from './pages/TvDetail';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -39,7 +41,9 @@ export default function App() {
               <main id="main-content" className="flex-1">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
+                  <Route path="/search" element={<Search />} />
                   <Route path="/movies/:movieId" element={<MovieDetail />} />
+                  <Route path="/tv/:showId" element={<TvDetail />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
