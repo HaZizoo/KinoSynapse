@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { getLatestMovies } from '../api/client';
+import { ActorAvatar, actorInitials } from '../components/ActorAvatar';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { SafeImage } from '../components/SafeImage';
 
@@ -49,6 +50,34 @@ describe('UI resilience', () => {
 
     expect(screen.getByText('No artwork')).toBeInTheDocument();
     expect(screen.queryByAltText('No poster')).not.toBeInTheDocument();
+  });
+
+  it('derives clean actor initials from cast names', () => {
+    expect(actorInitials('Keanu Reeves')).toBe('KR');
+    expect(actorInitials('Carrie-Anne Moss')).toBe('CM');
+    expect(actorInitials('Cher')).toBe('CH');
+    expect(actorInitials('  ')).toBe('?');
+  });
+
+  it('shows initials instead of a broken portrait when no image exists', () => {
+    render(<ActorAvatar name="Keanu Reeves" profileUrl={null} />);
+
+    expect(screen.getByText('KR')).toBeInTheDocument();
+    expect(screen.queryByAltText('Keanu Reeves portrait')).not.toBeInTheDocument();
+  });
+
+  it('swaps a failed portrait load for the initials avatar', () => {
+    render(
+      <ActorAvatar
+        name="Carrie-Anne Moss"
+        profileUrl="https://image.tmdb.org/t/p/w185/missing.jpg"
+      />,
+    );
+
+    fireEvent.error(screen.getByAltText('Carrie-Anne Moss portrait'));
+
+    expect(screen.getByText('CM')).toBeInTheDocument();
+    expect(screen.queryByAltText('Carrie-Anne Moss portrait')).not.toBeInTheDocument();
   });
 
   it('abandons a hung API request instead of loading forever', async () => {

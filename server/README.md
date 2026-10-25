@@ -98,6 +98,18 @@ Latest releases, newest first, paginated for infinite scroll. Live mode uses TMD
 }
 ```
 
+#### `GET /api/movies/search?query=matrix&page=1`
+
+Text search through TMDB `search/movie` with the configured `TMDB_API_KEY`. If the key is missing, rejected, rate limited, or TMDB is unreachable, the deterministic catalog search answers instead and `source` is `"catalog"`.
+
+```json
+{ "query": "matrix", "source": "search", "page": 1, "totalPages": 1, "totalResults": 1, "results": [] }
+```
+
+#### `GET /api/movies/discover?genre=action&year=1999&minRating=7&sortBy=rating&page=1`
+
+Calls TMDB `discover/movie` with whitelisted filters: `genre` (name or TMDB id), `year`, `minRating` (0–10) and `sortBy` (`popularity`, `rating`, `newest` or the raw TMDB sort values). Unknown genres, years outside 1900–2100, and unknown sorts return `400`. If TMDB is unavailable the same filters are applied to the offline catalog and `source` is `"catalog"`.
+
 #### `GET /api/movies/:id`
 
 Full details for one movie: overview, runtime, genres, rating, certification, director, up to 20 cast members, and trailer. Live mode makes one TMDB call thanks to `append_to_response=credits,release_dates,videos`. Unknown ids return `404`.

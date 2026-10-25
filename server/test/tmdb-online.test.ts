@@ -106,8 +106,53 @@ describe('live TMDB mode', () => {
     assert.equal(res.body.certification, 'R');
     assert.equal(res.body.director.name, 'Lana Wachowski');
     assert.equal(res.body.cast[0].character, 'Neo');
+    assert.equal(res.body.cast[0].profileUrl, 'https://image.tmdb.org/t/p/w185/keanu.jpg');
+    assert.equal(res.body.cast[1].profileUrl, null);
     assert.equal(res.body.trailer.key, 'vKQi3bBA1y8');
     assert.equal(res.body.genres[1].name, 'Science Fiction');
+  });
+
+  test('searches TMDB /search/movie with the API key', async () => {
+    nock(TMDB_API)
+      .get('/3/search/movie')
+      .query((query) => query.api_key === process.env.TMDB_API_KEY && query.query === 'matrix')
+      .reply(200, { page: 1, total_pages: 1, total_results: 1, results: [movieFixture] });
+
+    const res = await request(app).get('/api/movies/search?query=matrix');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'search');
+    assert.equal(res.body.totalResults, 1);
+    assert.equal(res.body.results[0].title, 'The Matrix');
+  });
+
+  test('discovers through TMDB /discover/movie with resolved filters', async () => {
+    nock(TMDB_API)
+      .get('/3/genre/movie/list')
+      .query(true)
+      .reply(200, { genres: [{ id: 28, name: 'Action' }] });
+
+    nock(TMDB_API)
+      .get('/3/discover/movie')
+      .query(
+        (query) =>
+          query.api_key === process.env.TMDB_API_KEY &&
+          query.with_genres === '28' &&
+          query['primary_release_date.gte'] === '1999-01-01' &&
+          query['primary_release_date.lte'] === '1999-12-31' &&
+          query['vote_average.gte'] === '7' &&
+          query.sort_by === 'vote_average.desc',
+      )
+      .reply(200, { page: 1, total_pages: 2, total_results: 20, results: [movieFixture] });
+
+    const res = await request(app).get(
+      '/api/movies/discover?genre=action&year=1999&minRating=7&sortBy=rating',
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'discover');
+    assert.equal(res.body.totalResults, 20);
+    assert.equal(res.body.results[0].title, 'The Matrix');
   });
 
   test('falls back to the catalog when TMDB rejects the key', async () => {

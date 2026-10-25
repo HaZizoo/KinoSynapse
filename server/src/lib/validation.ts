@@ -36,6 +36,40 @@ export function parseMovieId(value: unknown): number {
   return movieId;
 }
 
+export function parseSearchQuery(value: unknown): string {
+  if (typeof value !== 'string' || value.trim().length < 2) {
+    throw new ApiError(400, 'Query parameter "query" must be at least 2 characters.');
+  }
+  return value.trim().slice(0, 200);
+}
+
+export function parseOptionalQuery(value: unknown, label: string): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string') {
+    throw new ApiError(400, `Query parameter "${label}" must be a string.`);
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed.slice(0, 80) : null;
+}
+
+export function parseOptionalYear(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const year = Number(value);
+  if (!Number.isInteger(year) || year < 1900 || year > 2100) {
+    throw new ApiError(400, 'Query parameter "year" must be a four-digit year between 1900 and 2100.');
+  }
+  return year;
+}
+
+export function parseOptionalRating(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const rating = Number(value);
+  if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
+    throw new ApiError(400, 'Query parameter "minRating" must be a number between 0 and 10.');
+  }
+  return rating;
+}
+
 export function parseObjectId(value: unknown, label = 'id'): string {
   if (typeof value !== 'string' || !/^[a-f0-9]{24}$/i.test(value)) {
     throw new ApiError(400, `${label} must be a valid MongoDB ObjectId.`);

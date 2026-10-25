@@ -202,13 +202,19 @@ export async function semanticSearch(req: Request, res: Response): Promise<void>
   if (!tmdb.isTmdbOffline()) {
     try {
       const live = await runLiveSearch(query, page, interpretation, matchedGenres);
-      res.json({
-        query,
-        source: live.source,
-        interpretation: { ...interpretationPayload, matchedKeywordIds: live.keywordIds },
-        ...live.result,
-      });
-      return;
+
+      // `searchMovies` degrades to the catalog on a live failure, so only report
+      // the live source when TMDB is still in live mode after the call.
+      if (!tmdb.isTmdbOffline()) {
+        res.json({
+          query,
+          source: live.source,
+          interpretation: { ...interpretationPayload, matchedKeywordIds: live.keywordIds },
+          ...live.result,
+        });
+        return;
+      }
+      console.warn('[search] live search degraded mid-request, using the offline catalog.');
     } catch (err) {
       // Network failures mid-request land here; the local catalog still answers.
       console.warn('[search] live search failed, using the offline catalog:', (err as Error).message);

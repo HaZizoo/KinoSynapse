@@ -223,6 +223,9 @@ describe('KinoSynapse frontend', () => {
     ).toBeInTheDocument();
     expect(await screen.findByText('Keanu Reeves')).toBeInTheDocument();
     expect(screen.getByText('Neo')).toBeInTheDocument();
+    // Cast portraits are null in this payload, so the initials avatar renders.
+    expect(screen.getByText('KR')).toBeInTheDocument();
+    expect(screen.getByText('CM')).toBeInTheDocument();
     expect(screen.getAllByText('8.2').length).toBeGreaterThan(0);
     expect(screen.getByText('Welcome to the Real World.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /watch trailer/i })).toHaveAttribute(

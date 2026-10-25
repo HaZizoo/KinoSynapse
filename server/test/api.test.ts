@@ -106,6 +106,55 @@ describe('health and offline catalog', () => {
   });
 });
 
+describe('movie search and discovery', () => {
+  test('GET /api/movies/search searches the catalog offline', async () => {
+    const res = await request(app).get('/api/movies/search?query=matrix');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.query, 'matrix');
+    assert.equal(res.body.source, 'catalog');
+    assert.deepEqual(
+      res.body.results.map((movie: { id: number }) => movie.id),
+      [603],
+    );
+    assert.equal(res.body.results[0].title, 'The Matrix');
+  });
+
+  test('GET /api/movies/search validates the query', async () => {
+    assert.equal((await request(app).get('/api/movies/search')).status, 400);
+    assert.equal((await request(app).get('/api/movies/search?query=a')).status, 400);
+  });
+
+  test('GET /api/movies/discover filters by genre, rating and sort', async () => {
+    const res = await request(app).get(
+      '/api/movies/discover?genre=animation&minRating=7.5&sortBy=rating',
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.source, 'catalog');
+    assert.deepEqual(
+      res.body.results.map((movie: { id: number }) => movie.id),
+      [129, 324857, 862],
+    );
+  });
+
+  test('GET /api/movies/discover filters by year', async () => {
+    const res = await request(app).get('/api/movies/discover?year=1999');
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      res.body.results.map((movie: { id: number }) => movie.id),
+      [603],
+    );
+  });
+
+  test('GET /api/movies/discover rejects unknown filters', async () => {
+    assert.equal((await request(app).get('/api/movies/discover?genre=melodrama')).status, 400);
+    assert.equal((await request(app).get('/api/movies/discover?year=1200')).status, 400);
+    assert.equal((await request(app).get('/api/movies/discover?sortBy=random')).status, 400);
+  });
+});
+
 describe('deterministic semantic search', () => {
   test('filters the catalog by genre and rating without an LLM', async () => {
     const res = await request(app)

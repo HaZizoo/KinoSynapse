@@ -69,6 +69,8 @@ Every one of those is optional. See [server/README.md](server/README.md) for the
 | --- | --- | --- |
 | `GET` | `/api/health` | Status plus active database/TMDB modes |
 | `GET` | `/api/movies?page=1` | Latest releases, paginated |
+| `GET` | `/api/movies/search?query=…` | TMDB text search (catalog fallback) |
+| `GET` | `/api/movies/discover?genre=&year=&minRating=&sortBy=` | TMDB discover filters (catalog fallback) |
 | `GET` | `/api/movies/:id` | Details, cast, ratings, trailer |
 | `GET/POST` | `/api/movies/:id/reviews` | List or create/update reviews |
 | `DELETE` | `/api/movies/:id/reviews/:reviewId` | Delete your review |
