@@ -6,6 +6,12 @@ KinoSynapse is a full-stack movie discovery app. It keeps a newest-first feed of
 
 The whole app is **zero-config**: a clean clone starts with no API keys, no MongoDB, and no `.env`. It serves an 18-film offline catalog and keeps accounts, watchlists and reviews in memory until you add real credentials.
 
+## Visual preview
+
+The dashboard pairs semantic search with a resilient, offline-capable release catalog.
+
+![KinoSynapse semantic search and movie dashboard](docs/screenshots/movie-dashboard.png)
+
 ## Features
 
 - **Latest releases dashboard** — newest-first feed, responsive poster grid, skeleton/error/empty states, and infinite scroll.
