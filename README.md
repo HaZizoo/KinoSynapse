@@ -36,7 +36,7 @@ npm run install:all
 npm run dev
 ```
 
-`npm run dev` starts the API on http://localhost:4000 and the Vite client on http://127.0.0.1:5173 together. The client proxies `/api` to the API.
+`npm run dev` starts the API on http://localhost:4000 and the Vite client on http://127.0.0.1:5173 together. If 5173 is busy, Vite selects the next available port. The client proxies `/api` to the API.
 
 To use the live TMDB data, an LLM, and persistent MongoDB:
 
